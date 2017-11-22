@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source /home/oracle/.bash_profile
+cd /u01/app/oracle/admin/ORA11G/dpdump/
+impdp system/redhat2017@ORA11G SCHEMAS=UGATMMOVILADMIN DUMPFILE=UGATMMOVILADMIN.dmp LOGFILE=UGATMMOVILADMIN.log
