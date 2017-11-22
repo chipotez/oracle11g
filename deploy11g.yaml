@@ -1,0 +1,212 @@
+---
+- name: Host configuration
+  hosts: oracle
+  remote_user: root
+  vars:
+    - rhn_username: m.pineda
+    - rhn_pass: "redhat2016!.-"
+    - hostname_s: oracle.banorte.com
+    - oracle_sid: ORA12C
+    - oracle_all_password: redhat2017
+    - oracle_install_files_dir: "./Downloads"
+#    - orcpass: "$6$NXxFvCZ2$RdqSC6UE3WI04DoP0MjnZsbXKzHBr46KtdJIxTFv2fh67XI4YZoIv45gy8zyXuK6V48KOJ5abjxIGPIkMWlvj0"
+    - orcpass: "$6$lf92fiDijp1G.mK6$plOZCrslpetoybLUIhs5jgfx2OqTvnl93/Tz0KgJavQtQq4u9TJJtYTzZmwu2Xi4oFy1S.MvjaRw.VU.r0fId/"
+    - mapmname: oracle
+    - mapmdomain: banorte.mx
+  tasks:
+    - name: Instalando paquetes para Oracle.
+      yum: pkg={{item}} state=installed
+      with_items:
+        - binutils
+        - elfutils-libelf
+        - elfutils-libelf-devel
+        - gcc
+        - gcc-c++
+        - glibc
+        - glibc-common
+        - glibc-devel
+        - glibc-headers
+        - ksh
+        - mksh
+        - libaio
+        - libaio-devel
+        - libgcc
+        - libstdc++
+        - libstdc++-devel
+        - make
+        - sysstat
+        - unixODBC
+        - unixODBC-devel
+        - compat-libcap1
+        - smartmontools
+        - net-tools
+        - unzip
+    - name: Creando Grupo DBA
+      group:
+        name: dba
+        state: present
+    - name: Creando Grupo OPER
+      group:
+        name: oper
+        state: present
+    - name: Creando Grupo OINSTALL
+      group:
+        name: oinstall
+        state: present
+    - name: Creando Usuario Oracle
+      user:
+        name: oracle
+        uid: 502
+        group: oinstall
+        groups: 
+          - dba
+          - oper
+        password: '{{ orcpass }}'
+
+    - name: Creando ID
+      shell: uuidgen > id.txt ; cut -c 10-13 id.txt
+      register: id_hosts
+    - name: Configurando nombre de equipo.
+      hostname:
+        name="{{ mapmname }}{{ id_hosts.stdout }}.{{ mapmdomain }}"
+      register: nombre_equipo
+    - debug: var=nombre_equipo.name
+    - name: Configurando Sysctl.
+      template:
+        src: templates/sysctl.conf.j2
+        dest: /etc/sysctl.conf
+
+    - name: Cargando Parametros de Kernel.
+      command: sysctl -p
+      ignore_errors: True
+
+    - name: Configurando Limits.
+      template:
+        src: templates/limits.conf.j2
+        dest: /etc/security/limits.conf
+    - name: Creando registro en /etc/hosts.
+      lineinfile:
+        path: /etc/hosts
+        line: '{{ ansible_default_ipv4.address }} {{ ansible_fqdn }}'
+    - name: Agregando variables para usuario Oracle.
+      lineinfile:
+        dest: /home/oracle/.bash_profile
+        line: "{{ item }}"
+      with_items:
+        - export TMP=/tmp
+        - export ORACLE_HOSTNAME="{{ ansible_fqdn }}"
+        - export ORACLE_UNQNAME=ORA11G
+        - export ORACLE_BASE=/u01/app/oracle
+        - export ORACLE_HOME=/u01/app/oracle/product/11.2.0/db_1
+        - export ORACLE_SID=ORA11G
+        - PATH=/usr/sbin:$PATH:/u01/app/oracle/product/11.2.0/db_1/bin
+        - export LD_LIBRARY_PATH=/u01/app/oracle/product/11.2.0/db_1/lib:/lib:/usr/lib;
+        - export CLASSPATH=/u01/app/oracle/product/11.2.0/db_1/jlib:/u01/app/oracle/product/11.2.0/db_1/rdbms/jlib;
+        - umask 022
+        - export PATH
+    - systemd:
+        name: firewalld
+        state: stopped
+        enabled: no
+    - name: Creando estructura de directorios.
+      file:
+        path: /u01/app/oracle/product/11.2.0/db_1
+        state: directory
+        owner: oracle
+        group: oinstall
+    - name: Copiando software.
+      command: mv /software/database /home/oracle/database
+
+    - file:
+        path: /home/oracle/database
+        state: directory
+        owner: oracle
+        group: oinstall
+        recurse: yes
+
+    - name: Creando oraInst.loc
+      template:
+        src: templates/oraInst.loc.j2
+        dest: /etc/oraInst.loc
+
+
+    - name: Creando archivo de respuestas binarios Oracle.
+      template:
+        src: templates/db_install.rsp.j2
+        dest: /home/oracle/database/response/db_install.rsp
+        owner: oracle
+        group: oinstall
+
+    - name: Copiando llaves  para oracle
+      authorized_key:
+        user: oracle
+        state: present
+        key: "{{ lookup('file', 'templates/id_rsa.pub') }}"
+
+    - name: Instalando binarios.
+      remote_user: oracle
+      command: ./runInstaller -silent -waitforcompletion -ignoreSysPrereqs -ignorePrereq   -responseFile /home/oracle/database/response/db_install.rsp
+      args:
+        chdir: /home/oracle/database/
+      register: installer_sw_db
+      ignore_errors: True
+    - name: Root Scrip 1
+      command: /u01/app/oracle/product/11.2.0/db_1/root.sh
+      register: Root_sh
+      ignore_errors: True
+    - name: Oracle NET.
+      remote_user: oracle
+      command: ./netca /silent /responseFile /home/oracle/database/response/netca.rsp
+      args:
+        chdir: /u01/app/oracle/product/11.2.0/db_1/bin/
+      register: installer_sw_db
+      ignore_errors: True
+    - name: Creando directorio datafiles.
+      remote_user: oracle
+      file:
+        path: /u01/app/oracle/oradata
+        state: directory
+        owner: oracle
+        group: oinstall       
+    - name: Creando directorio flash recovery area.
+      remote_user: oracle
+      file:
+        path: /u01/app/oracle/flash_recovery_area
+        state: directory
+        owner: oracle
+        group: oinstall       
+    - name: Creando archivo de respuestas DB (dbca.rsp).
+      template:
+        src: templates/dbca.rsp.j2
+        dest: /home/oracle/database/response/dbca.rsp
+        owner: oracle
+        group: oinstall
+
+    - name: Instalando Base de Datos.
+      remote_user: oracle
+      command: ./dbca -silent -responseFile /home/oracle/database/response/dbca.rsp
+      args:
+        chdir: /u01/app/oracle/product/11.2.0/db_1/bin/
+      register: installer_sw_db
+      ignore_errors: True
+    - name: Copiando dump.
+      command: mv /software/dump/UGATMMOVILADMIN.dmp /u01/app/oracle/admin/ORA11G/dpdump/
+
+    - file:
+        path: /u01/app/oracle/admin/ORA11G/dpdump
+        state: directory
+        owner: oracle
+        group: oinstall
+        recurse: yes
+
+    - name: Copiando dump.
+      template:
+        src: templates/dump.sh.j2
+        dest: /home/oracle/dump.sh
+        owner: oracle
+        group: oinstall
+    - name: Realizando Dump.
+      remote_user: oracle
+      command: sh ~/dump.sh
+#      args:
+#        chdir: /u01/app/oracle/admin/ORA11G/dpdump
