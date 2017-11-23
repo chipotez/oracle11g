@@ -9,10 +9,9 @@
     - oracle_sid: ORA12C
     - oracle_all_password: redhat2017
     - oracle_install_files_dir: "./Downloads"
-#    - orcpass: "$6$NXxFvCZ2$RdqSC6UE3WI04DoP0MjnZsbXKzHBr46KtdJIxTFv2fh67XI4YZoIv45gy8zyXuK6V48KOJ5abjxIGPIkMWlvj0"
     - orcpass: "$6$lf92fiDijp1G.mK6$plOZCrslpetoybLUIhs5jgfx2OqTvnl93/Tz0KgJavQtQq4u9TJJtYTzZmwu2Xi4oFy1S.MvjaRw.VU.r0fId/"
     - mapmname: oracle
-    - mapmdomain: banorte.mx
+    - mapmdomain: nombre_cliente.mx
   tasks:
     - name: Instalando paquetes para Oracle.
       yum: pkg={{item}} state=installed
@@ -62,20 +61,17 @@
           - dba
           - oper
         password: '{{ orcpass }}'
-
-    - name: Creando ID
+    - name: Creando ID de host.
       shell: uuidgen > id.txt ; cut -c 10-13 id.txt
       register: id_hosts
     - name: Configurando nombre de equipo.
       hostname:
         name="{{ mapmname }}{{ id_hosts.stdout }}.{{ mapmdomain }}"
       register: nombre_equipo
-    - debug: var=nombre_equipo.name
     - name: Configurando Sysctl.
       template:
         src: templates/sysctl.conf.j2
         dest: /etc/sysctl.conf
-
     - name: Cargando Parametros de Kernel.
       command: sysctl -p
       ignore_errors: True
@@ -104,7 +100,8 @@
         - export CLASSPATH=/u01/app/oracle/product/11.2.0/db_1/jlib:/u01/app/oracle/product/11.2.0/db_1/rdbms/jlib;
         - umask 022
         - export PATH
-    - systemd:
+    - name: Configurando Firewall.
+      systemd:
         name: firewalld
         state: stopped
         enabled: no
@@ -114,10 +111,11 @@
         state: directory
         owner: oracle
         group: oinstall
-    - name: Copiando software.
+    - name: Copiando software de base de datos.
       command: mv /software/database /home/oracle/database
 
-    - file:
+    - name: Modificando usuarios y grupos propietarios de software.  
+      file:
         path: /home/oracle/database
         state: directory
         owner: oracle
