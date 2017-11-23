@@ -13,6 +13,7 @@
       yum: pkg={{item}} state=installed
       with_items:
         - binutils
+        - compat-libcap1
         - elfutils-libelf
         - elfutils-libelf-devel
         - gcc
@@ -22,19 +23,18 @@
         - glibc-devel
         - glibc-headers
         - ksh
-        - mksh
         - libaio
         - libaio-devel
         - libgcc
         - libstdc++
         - libstdc++-devel
         - make
+        - mksh
+        - net-tools
+        - smartmontools
         - sysstat
         - unixODBC
         - unixODBC-devel
-        - compat-libcap1
-        - smartmontools
-        - net-tools
         - unzip
     - name: Creando Grupo DBA
       group:
