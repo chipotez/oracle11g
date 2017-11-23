@@ -114,7 +114,7 @@
     - name: Copiando software de base de datos.
       command: mv /software/database /home/oracle/database
 
-    - name: Modificando usuarios y grupos propietarios de software.  
+    - name: Modificando usuarios y grupos propietarios de software. 
       file:
         path: /home/oracle/database
         state: directory
@@ -206,5 +206,3 @@
     - name: Realizando Dump.
       remote_user: oracle
       command: sh ~/dump.sh
-#      args:
-#        chdir: /u01/app/oracle/admin/ORA11G/dpdump
