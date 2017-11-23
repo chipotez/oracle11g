@@ -3,12 +3,8 @@
   hosts: oracle
   remote_user: root
   vars:
-    - rhn_username: m.pineda
-    - rhn_pass: "redhat2016!.-"
-    - hostname_s: oracle.banorte.com
     - oracle_sid: ORA12C
     - oracle_all_password: redhat2017
-    - oracle_install_files_dir: "./Downloads"
     - orcpass: "$6$lf92fiDijp1G.mK6$plOZCrslpetoybLUIhs5jgfx2OqTvnl93/Tz0KgJavQtQq4u9TJJtYTzZmwu2Xi4oFy1S.MvjaRw.VU.r0fId/"
     - mapmname: oracle
     - mapmdomain: nombre_cliente.mx
@@ -74,16 +70,17 @@
         dest: /etc/sysctl.conf
     - name: Cargando Parametros de Kernel.
       command: sysctl -p
-      ignore_errors: True
 
     - name: Configurando Limits.
       template:
         src: templates/limits.conf.j2
         dest: /etc/security/limits.conf
+
     - name: Creando registro en /etc/hosts.
       lineinfile:
         path: /etc/hosts
         line: '{{ ansible_default_ipv4.address }} {{ ansible_fqdn }}'
+
     - name: Agregando variables para usuario Oracle.
       lineinfile:
         dest: /home/oracle/.bash_profile
@@ -100,17 +97,20 @@
         - export CLASSPATH=/u01/app/oracle/product/11.2.0/db_1/jlib:/u01/app/oracle/product/11.2.0/db_1/rdbms/jlib;
         - umask 022
         - export PATH
+
     - name: Configurando Firewall.
       systemd:
         name: firewalld
         state: stopped
         enabled: no
+
     - name: Creando estructura de directorios.
       file:
         path: /u01/app/oracle/product/11.2.0/db_1
         state: directory
         owner: oracle
         group: oinstall
+
     - name: Copiando software de base de datos.
       command: mv /software/database /home/oracle/database
 
@@ -147,18 +147,19 @@
       args:
         chdir: /home/oracle/database/
       register: installer_sw_db
-      ignore_errors: True
+            
     - name: Root Scrip 1
       command: /u01/app/oracle/product/11.2.0/db_1/root.sh
       register: Root_sh
-      ignore_errors: True
+
     - name: Oracle NET.
       remote_user: oracle
       command: ./netca /silent /responseFile /home/oracle/database/response/netca.rsp
       args:
         chdir: /u01/app/oracle/product/11.2.0/db_1/bin/
       register: installer_sw_db
-      ignore_errors: True
+
+
     - name: Creando directorio datafiles.
       remote_user: oracle
       file:
@@ -166,13 +167,15 @@
         state: directory
         owner: oracle
         group: oinstall       
+
     - name: Creando directorio flash recovery area.
       remote_user: oracle
       file:
         path: /u01/app/oracle/flash_recovery_area
         state: directory
         owner: oracle
-        group: oinstall       
+        group: oinstall
+        
     - name: Creando archivo de respuestas DB (dbca.rsp).
       template:
         src: templates/dbca.rsp.j2
@@ -187,22 +190,25 @@
         chdir: /u01/app/oracle/product/11.2.0/db_1/bin/
       register: installer_sw_db
       ignore_errors: True
+
     - name: Copiando dump.
       command: mv /software/dump/UGATMMOVILADMIN.dmp /u01/app/oracle/admin/ORA11G/dpdump/
 
-    - file:
+    - name: Asignando permisos a directorio dump.
+      file:
         path: /u01/app/oracle/admin/ORA11G/dpdump
         state: directory
         owner: oracle
         group: oinstall
         recurse: yes
 
-    - name: Copiando dump.
+    - name: Creando secuencia de dump.
       template:
         src: templates/dump.sh.j2
         dest: /home/oracle/dump.sh
         owner: oracle
         group: oinstall
+        
     - name: Realizando Dump.
       remote_user: oracle
       command: sh ~/dump.sh
