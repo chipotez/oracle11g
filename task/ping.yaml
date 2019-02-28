@@ -1,7 +1,8 @@
 ---
-- name: Ping Equipos
-  hosts: PROD
-  remote_user: root
-  gather_facts: no
+- name: Hello World!
+  hosts: all
+ 
   tasks:
-    - ping
+ 
+  - name: Hello World!
+    shell: echo "Hi! Tower is working."
