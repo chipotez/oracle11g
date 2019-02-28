@@ -4,6 +4,4 @@
   remote_user: root
   gather_facts: no
   tasks:
-    - name: Pings
-      ping
-      
+    - ping
