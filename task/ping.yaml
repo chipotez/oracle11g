@@ -6,3 +6,11 @@
  
   - name: Hello World!
     shell: echo "Hi! Tower is working."
+
+
+- name: Ping Equipos	- name: Hello World!
+  hosts: PROD	  hosts: all
+  remote_user: root	
+   gather_facts: no	
+  tasks:	  tasks:
+    - ping
